@@ -1,0 +1,105 @@
+{
+    "crimper": {
+        "meanings": [
+            {
+                "def": "a mechanical device consisting of a cylindrical tube around which the hair is wound to curl it",
+                "id": "67d912c5e4",
+                "speech_part": "noun",
+                "synonyms": [
+                    "roller"
+                ]
+            },
+            {
+                "def": "someone who tricks or coerces men into service as sailors or soldiers",
+                "id": "35809cf3d1",
+                "speech_part": "noun",
+                "synonyms": [
+                    "crimp"
+                ]
+            }
+        ],
+        "word": "crimper",
+        "wordset_id": "72e342b316"
+    },
+    "crimson": {
+        "contributors": [
+            "zellerpress",
+            "lefurjah"
+        ],
+        "editors": [
+            "hcatlin"
+        ],
+        "meanings": [
+            {
+                "def": "characterized by violence or bloodshed",
+                "example": "writes of crimson deeds and barbaric days- Andrea Parke",
+                "id": "d16b24df7d",
+                "speech_part": "adjective",
+                "synonyms": [
+                    "red",
+                    "violent"
+                ]
+            },
+            {
+                "def": "of a color at the end of the color spectrum (next to orange)",
+                "id": "6f6a9832ff",
+                "speech_part": "adjective",
+                "synonyms": [
+                    "red",
+                    "reddish",
+                    "ruddy",
+                    "blood-red",
+                    "carmine",
+                    "cerise",
+                    "cherry",
+                    "cherry-red",
+                    "ruby",
+                    "ruby-red",
+                    "scarlet"
+                ]
+            },
+            {
+                "def": "(especially of the face) reddened or suffused with or as if with blood from emotion or exertion",
+                "example": "crimson with fury",
+                "id": "4bc90cb892",
+                "speech_part": "adjective",
+                "synonyms": [
+                    "red",
+                    "reddened",
+                    "red-faced",
+                    "flushed"
+                ]
+            },
+            {
+                "def": "a deep and vivid red color",
+                "id": "04ea213e29",
+                "speech_part": "noun",
+                "synonyms": [
+                    "ruby",
+                    "deep red"
+                ]
+            },
+            {
+                "def": "to turn red, as if in embarrassment or shame",
+                "id": "502ac31434",
+                "speech_part": "verb",
+                "synonyms": [
+                    "blush"
+                ]
+            }
+        ],
+        "word": "crimson",
+        "wordset_id": "b3ef7798a5"
+    },
+    "crimson clover": {
+        "meanings": [
+            {
+                "def": "southern European annual with spiky heads of crimson flower",
+                "id": "c0a9c770bb",
+                "speech_part": "noun"
+            }
+        ],
+        "word": "crimson clover",
+        "wordset_id": "7a9935f473"
+    }
+}
