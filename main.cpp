@@ -10,18 +10,24 @@
 using json = nlohmann::json;
 
 namespace Word {
-    struct Meanings
+    struct Meaning
     {
-        std::string def {};
-        std::string example {};
-        std::string speech_part {};
+        std::string def {""};
+        std::string example {""};
+        std::string speech_part {""};
         std::vector<std::string> synonyms {};
+
+        Meaning() = default;
+        /* Meaning(std::string def_, std::string example_, std::string speech_part_, std::vector<std::string> synonyms_)
+        : def(std::move(def_)), example(std::move(example_)), speech_part(std::move(speech_part_)), synonyms(synonyms_) */
     };
     struct Word
     {
         std::string name {};
-        std::vector<Meanings> meanings;
+        std::vector<Meaning> meanings;
     };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Meaning, def, example, speech_part, synonyms)
 }
 
 class Dictionary
@@ -58,10 +64,12 @@ class Dictionary
 
     Word::Word get_random_word()
     {
-        std::string word = m_keys[Random::get(0, static_cast<int>(m_keys.size()))];
+        std::string word = m_keys[static_cast<std::size_t>(Random::get(0, static_cast<int>(m_keys.size() - 1)))];
         return m_words[word];
     }
 };
+
+
 
 int main()
 {
@@ -73,10 +81,6 @@ int main()
     // open JSON dict
 
     std::ifstream file("test_dict.json");
-    json j;
-    file >> j;
-
-    // should I use this callback with the parser? does it help?
     
     json::parser_callback_t cb = [](int depth, json::parse_event_t event, json & parsed)
     {
@@ -85,15 +89,19 @@ int main()
         {
             return false;
         }
-        elif (event == json::parse_event_t::key and parsed == json("editors"))
+        else if (event == json::parse_event_t::key and parsed == json("editors"))
         {
             return false;
         }
-        elif (event == json::parse_event_t::key and parsed == json("wordset_id"))
+        else if (event == json::parse_event_t::key and parsed == json("wordset_id"))
         {
             return false;
         }
-        elif (event == json::parse_event_t::key and parsed == json("id"))
+        else if (event == json::parse_event_t::key and parsed == json("id"))
+        {
+            return false;
+        }
+        else if (event == json::parse_event_t::key and parsed == json("labels"))
         {
             return false;
         }
@@ -103,16 +111,55 @@ int main()
         }
     };
 
-    // parse (with callback) and serialize JSON
-    json j_filtered = json::parse(j, cb);
+    json j = json::parse(file, cb);
 
 
+    // a is meanings and word all together
+    for (auto& a : j)
+    {
+        Word::Word temp_word{};
 
-    // Read Dict
-        // create unordered_map
-        // create word struct
-        // read read json object into word struct
-        // add struct to unordered_map
+        // b is multiple meanings grouped together, with word name after
+        for (auto& b : a)
+        {
+            // c is to separate meanings, with word name after
+            for (auto& c : b)
+            {
+                
+                if (c.is_structured())
+                {
+                    // because this is emplace_back, meanings will be in opposite order of how we want them
+                    temp_word.meanings.emplace_back(c.template get<Word::Meaning>());
+
+                    // test
+                    // std::cout << c << '\n';
+
+                }
+                else
+                {
+                    temp_word.name = c.template get<std::string>();
+
+                    //test
+                    // std:: cout << c << '\n';
+                }
+
+            }
+            // std::cout << b << "\n\n"; 
+        }
+
+        dictionary.add_word(temp_word);
+    }
+
+    // std::cout << dictionary.get_word("crimson clover").name << '\n';
+    
+
+
+    int number_of_random_words{10};
+    for (int i = 0; i < number_of_random_words; i++)
+    {
+        std::cout << dictionary.get_random_word().name << '\n';
+    }
+
 
     // Randomly select a word
         // Check Feature Flags and adjust dict_map
