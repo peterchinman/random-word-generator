@@ -12,10 +12,10 @@ using json = nlohmann::json;
 namespace Word {
     struct Meaning
     {
-        std::string def {""};
-        std::string example {""};
-        std::string speech_part {""};
-        std::vector<std::string> synonyms {};
+        std::string_view def {""};
+        std::string_view example {""};
+        std::string_view speech_part {""};
+        std::vector<std::string_view> synonyms {};
 
         Meaning() = default;
         /* Meaning(std::string def_, std::string example_, std::string speech_part_, std::vector<std::string> synonyms_)
@@ -23,7 +23,7 @@ namespace Word {
     };
     struct Word
     {
-        std::string name {};
+        std::string_view name {};
         std::vector<Meaning> meanings;
     };
 
@@ -41,15 +41,20 @@ class Dictionary
     the key you selected with the back() element of your key vector and call pop_back
     (), after that erase the element from the map and return the value - takes constant time
     */
-    std::vector<std::string> m_keys;
+    std::vector<std::string_view> m_keys;
 
     // hash map of word to meanings
     // to get meanings: std::get<0>(m_words[word].meanings)
-    std::unordered_map<std::string, Word::Word> m_words;
+    std::unordered_map<std::string_view, Word::Word> m_words;
 
     public:
 
-    Word::Word get_word(std::string word)
+    int get_dict_size()
+    {
+        return static_cast<int>(m_keys.size());
+    }
+
+    Word::Word get_word(std::string_view word)
     {
         return m_words[word];
     }
@@ -64,7 +69,7 @@ class Dictionary
 
     Word::Word get_random_word()
     {
-        std::string word = m_keys[static_cast<std::size_t>(Random::get(0, static_cast<int>(m_keys.size() - 1)))];
+        std::string_view word {m_keys[static_cast<std::size_t>(Random::get(0, static_cast<int>(m_keys.size() - 1)))]};
         return m_words[word];
     }
 };
@@ -137,7 +142,7 @@ int main()
                 }
                 else
                 {
-                    temp_word.name = c.template get<std::string>();
+                    temp_word.name = c.template get<std::string_view>();
 
                     //test
                     // std:: cout << c << '\n';
@@ -150,6 +155,8 @@ int main()
         dictionary.add_word(temp_word);
     }
 
+
+    // test to see if dictionary has individual word
     // std::cout << dictionary.get_word("crimson clover").name << '\n';
     
 
@@ -160,8 +167,9 @@ int main()
         std::cout << dictionary.get_random_word().name << '\n';
     }
 
+    std::cout << "Dictionary size: " << dictionary.get_dict_size() << '\n';
 
-    // Randomly select a word
+
         // Check Feature Flags and adjust dict_map
 
 }
