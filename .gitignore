@@ -1,6 +1,7 @@
 data/
 .vscode/
 main
+test*
 
 # Compiled source #
 ###################
