@@ -43,9 +43,13 @@ int main()
     {
         std::cout << "Problem creating a prepared statement (sqlite3_open)" << std::endl;
     }
+    
+    // Need to Create tables for words
 
+    // Set-up loop to insert each word into database
 
     sqlite3_close(db);
+
 
 
     return 0;
