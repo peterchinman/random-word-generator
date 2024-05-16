@@ -2,6 +2,7 @@ data/
 .vscode/
 main
 test*
+private/
 
 # Compiled source #
 ###################

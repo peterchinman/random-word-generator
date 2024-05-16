@@ -7,7 +7,7 @@ int main()
 {
     sqlite3 *db; // pointer to database connection
 
-    int statusOfOpen = sqlite3_open("wordset_dictionary.sqlite", &db);
+    int statusOfOpen = sqlite3_open("dictionary.sqlite", &db);
 
     if (statusOfOpen == SQLITE_OK)
     {
