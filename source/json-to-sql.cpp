@@ -42,11 +42,11 @@ int main()
         std::cout << "Successfully opened the database" << std::endl;
 
         std::string sql = R"(
-            CREATE TALBE IF NOT EXISTS word (
+            CREATE TABLE IF NOT EXISTS word (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 word TEXT NOT NULL,
             );
-            CREATE TALBE IF NOT EXISTS meaning (
+            CREATE TABLE IF NOT EXISTS meaning (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 definition TEXT NOT NULL,
                 example TEXT,
@@ -54,13 +54,13 @@ int main()
                 word_id INTEGER NOT NULL,
                 FOREIGN KEY (word_id) REFERENCES word(id)
             );
-            CREATE TALBE IF NOT EXISTS pronunciation (
+            CREATE TABLE IF NOT EXISTS pronunciation (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ARPAbet TEXT NOT NULL,
                 word_id INTEGER NOT NULL,
                 FOREIGN KEY (word_id) REFERENCES word(id)
             );
-            CREATE TALBE IF NOT EXISTS synonym (
+            CREATE TABLE IF NOT EXISTS synonym (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 synonym TEXT NOT NULL,
                 meaning_id INTEGER NOT NULL,

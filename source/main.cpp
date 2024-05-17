@@ -4,6 +4,7 @@
 #include <cstring>
 #include <regex>
 #include "nlohmann/json.hpp"
+#include "external/sqlite/sqlite3.h"
 #include "Random.h"
 
 
@@ -12,10 +13,10 @@ using json = nlohmann::json;
 namespace Word {
     struct Meaning
     {
-        std::string_view def {""};
-        std::string_view example {""};
-        std::string_view speech_part {""};
-        std::vector<std::string_view> synonyms {};
+        std::string def {""};
+        std::string example {""};
+        std::string speech_part {""};
+        std::vector<std::string> synonyms {};
 
         Meaning() = default;
         /* Meaning(std::string def_, std::string example_, std::string speech_part_, std::vector<std::string> synonyms_)
@@ -23,7 +24,7 @@ namespace Word {
     };
     struct Word
     {
-        std::string_view name {};
+        std::string name {};
         std::vector<Meaning> meanings;
     };
 
@@ -41,11 +42,11 @@ class Dictionary
     the key you selected with the back() element of your key vector and call pop_back
     (), after that erase the element from the map and return the value - takes constant time
     */
-    std::vector<std::string_view> m_keys;
+    std::vector<std::string> m_keys;
 
     // hash map of word to meanings
     // to get meanings: std::get<0>(m_words[word].meanings)
-    std::unordered_map<std::string_view, Word::Word> m_words;
+    std::unordered_map<std::string, Word::Word> m_words;
 
     public:
 
@@ -54,7 +55,7 @@ class Dictionary
         return static_cast<int>(m_keys.size());
     }
 
-    Word::Word get_word(std::string_view word)
+    Word::Word get_word(std::string word)
     {
         return m_words[word];
     }
@@ -69,10 +70,182 @@ class Dictionary
 
     Word::Word get_random_word()
     {
-        std::string_view word {m_keys[static_cast<std::size_t>(Random::get(0, static_cast<int>(m_keys.size() - 1)))]};
+        std::string word {m_keys[static_cast<std::size_t>(Random::get(0, static_cast<int>(m_keys.size() - 1)))]};
         return m_words[word];
     }
+
+    void save_to_database(sqlite3* db);
 };
+
+void Dictionary::save_to_database(sqlite3* db)
+{
+    sqlite3_stmt* stmt_word;
+    sqlite3_stmt* stmt_meaning;
+    sqlite3_stmt* stmt_synonym;
+
+    int rc{};
+
+    const int batch_size = 1000;
+    int count = 0;
+
+
+    // Prepare the SQL statements
+    const char* sql_insert_word = "INSERT INTO word (word) VALUES (?);";
+    const char* sql_insert_meaning = "INSERT INTO meaning (definition, example, speech_part, word_id) VALUES (?, ?, ?, (SELECT id FROM word WHERE word = ?));";
+    const char* sql_insert_synonym = "INSERT INTO synonym (synonym, meaning_id) VALUES (?, (SELECT id FROM meaning WHERE word_id = (SELECT id FROM word WHERE word = ?)));";
+
+    rc = sqlite3_prepare_v2(db, sql_insert_word, -1, &stmt_word, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare word insert statement: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    rc = sqlite3_prepare_v2(db, sql_insert_meaning, -1, &stmt_meaning, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare meaning insert statement: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_finalize(stmt_word);
+        return;
+    }
+
+    rc = sqlite3_prepare_v2(db, sql_insert_synonym, -1, &stmt_synonym, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare synonym insert statement: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_finalize(stmt_word);
+        sqlite3_finalize(stmt_meaning);
+        return;
+    }
+
+
+    // Begin Transaction
+    // Am I loading too much into this transaction?
+
+    rc = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to begin transaction: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    
+
+    for (const auto& word : m_words)
+    {
+        // Chat told me to define these, but I don't think I need to?
+        // const std::string& word_name = word.first;
+        // const Word::Word& word_word = word.second;
+
+        // Insert word into word table
+        // Note: the second argument indicates which ? you are binding to
+
+        sqlite3_bind_text(stmt_word, 1, word.first.c_str(), -1, SQLITE_STATIC);
+
+        // Step
+
+        rc = sqlite3_step(stmt_word);
+
+        // Check
+        if (rc != SQLITE_DONE && rc != SQLITE_CONSTRAINT) {
+            std::cerr << "Word insert execution failed: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_finalize(stmt_word);
+            sqlite3_finalize(stmt_meaning);
+            sqlite3_finalize(stmt_synonym);
+            sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+            return;
+        }
+        // reset
+        sqlite3_reset(stmt_word);
+
+        // Insert meanings into meaning table
+
+        for (const auto& meaning : word.second.meanings)
+        {
+            
+            // bind
+
+            // What happens if some of these are null?
+
+            sqlite3_bind_text(stmt_meaning, 1, meaning.def.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt_meaning, 2, meaning.example.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt_meaning, 2, meaning.speech_part.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt_meaning, 2, word.first.c_str(), -1, SQLITE_STATIC);
+
+            // step
+
+            rc = sqlite3_step(stmt_meaning);
+
+            // check
+
+            if (rc != SQLITE_DONE && rc != SQLITE_CONSTRAINT) {
+                std::cerr << "Meaning insert execution failed: " << sqlite3_errmsg(db) << std::endl;
+                sqlite3_finalize(stmt_word);
+                sqlite3_finalize(stmt_meaning);
+                sqlite3_finalize(stmt_synonym);
+                sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+                return;
+            }
+
+            sqlite3_reset(stmt_meaning);
+
+            
+
+            for (const auto& synonym : meaning.synonyms)
+            {
+                
+
+                // bind
+                sqlite3_bind_text(stmt_synonym, 1, synonym.c_str(), -1, SQLITE_STATIC);
+                sqlite3_bind_text(stmt_synonym, 2, word.first.c_str(), -1, SQLITE_STATIC);
+
+                // step
+                rc = sqlite3_step(stmt_synonym);
+
+                // check
+
+                if (rc != SQLITE_DONE && rc != SQLITE_CONSTRAINT) {
+                    std::cerr << "Meaning insert execution failed: " << sqlite3_errmsg(db) << std::endl;
+                    sqlite3_finalize(stmt_word);
+                    sqlite3_finalize(stmt_meaning);
+                    sqlite3_finalize(stmt_synonym);
+                    sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+                    return;
+                }
+
+                sqlite3_reset(stmt_meaning);
+                }
+        }
+        
+        std::cout << "added: " << word.first << std::endl; 
+
+        count++;
+        if (count % batch_size == 0)
+        {
+            rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+            if (rc != SQLITE_OK) {
+                std::cerr << "Failed to commit transaction: " << sqlite3_errmsg(db) << std::endl;
+                break;
+            }
+            rc = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+            if (rc != SQLITE_OK) {
+                std::cerr << "Failed to begin transaction: " << sqlite3_errmsg(db) << std::endl;
+                break;
+            }
+        }
+    
+    }
+
+
+    // Finalize the statements
+    sqlite3_finalize(stmt_word);
+    sqlite3_finalize(stmt_meaning);
+    sqlite3_finalize(stmt_synonym);
+
+     // Commit transaction
+    rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK)
+    {
+        std::cerr << "Failed to commit final transaction: " << sqlite3_errmsg(db) << std::endl;
+    }
+
+}
 
 
 
@@ -142,7 +315,7 @@ int main()
                 }
                 else
                 {
-                    temp_word.name = c.template get<std::string_view>();
+                    temp_word.name = c.template get<std::string>();
 
                     //test
                     // std:: cout << c << '\n';
