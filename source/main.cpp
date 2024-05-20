@@ -4,7 +4,6 @@
 #include <cstring>
 #include "../external/nlohmann/json.hpp"
 #include "../external/Random.h"
-#include "create_tables.h"
 
 extern "C" {
     #include "../external/sqlite/sqlite3.h"
@@ -29,7 +28,64 @@ namespace Word {
     {
         std::string name {};
         std::vector<Meaning> meanings;
+
+        void print_word()
+        {
+            std::cout << name << std::endl;
+
+            if (meanings.size() == 1)
+            {
+                std::cout << meanings[0].speech_part << std::endl;
+                std::cout << meanings[0].def << std::endl;
+                std::cout << "Example: "<< meanings[0].example << std::endl;
+                
+                if (meanings[0].synonyms.size() == 0)
+                {
+                    return;
+                }
+                else 
+                {
+                    std::cout << "Synoynms: ";
+                    for (const auto& synonym : meanings[0].synonyms)
+                    {
+                        std::cout << synonym << ", ";
+                    }
+                    std::cout << std::endl;
+                }
+            }
+
+            else
+            {  
+            int count{1};
+            for (auto& meaning : meanings)
+            {
+                std::cout << count++ << std::endl; 
+                std::cout << meanings[0].speech_part << std::endl;
+                std::cout << meanings[0].def << std::endl;
+                std::cout << "Example: "<< meanings[0].example << std::endl;
+                
+                if (meanings[0].synonyms.size() == 0)
+                {
+                    continue;
+                }
+                else 
+                {
+                    std::cout << "Synoynms: ";
+                    for (const auto& synonym : meanings[0].synonyms)
+                    {
+                        std::cout << synonym << ", ";
+                    }
+                    std::cout << std::endl;
+                }
+            }
+            }
+
+            return;
+
+            
+        }
     };
+
 
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Meaning, def, example, speech_part, synonyms)
 }
@@ -250,7 +306,7 @@ void Dictionary::save_to_database(sqlite3* db)
 }
 
 
-bool wordset_callback(int depth, Json::parse_event_t event, json & parsed)
+bool wordset_callback(int depth, json::parse_event_t event, json & parsed)
 {
      // skip object elements with incorrect keys
 
@@ -281,23 +337,24 @@ bool wordset_callback(int depth, Json::parse_event_t event, json & parsed)
         }
 }
 
-
-int main()
+void test_random_words(Dictionary& dictionary, int number_of_random_words)
 {
+    std::cout << number_of_random_words << " Random Words: " << std::endl;
+    for (int i = 0; i < number_of_random_words; i++)
+    {
+        dictionary.get_random_word().print_word();
+    }
+    std::cout << "Dictionary size: " << dictionary.get_dict_size() << '\n';
+}
 
-
-    // Declare Dictionary class object
-    Dictionary dictionary {};
-
-    // Open a dictionary, "../data/small_test_dict.json" for tests, "../data/wordset_merged_dict.json"
-    std::ifstream file("../data/small_test_dict.json");
-
-    // Callback ignores 
+bool json_to_class(std::ifstream& file, Dictionary& dictionary)
+{
+    // Ignore unwanted data from wordset dict json 
     json::parser_callback_t cb = wordset_callback;
 
     json j = json::parse(file, cb);
-
-
+    
+    // CUE: over-complicated series of for loops that work to get all JSON data correctly structured
     // a is meanings and word all together
     for (auto& a : j)
     {
@@ -312,10 +369,10 @@ int main()
                 
                 if (c.is_structured())
                 {
-                    // because this is emplace_back, meanings will be in opposite order of how we want them
+                    // Because this is emplace_back, meanings will be in opposite order of how we want them
                     temp_word.meanings.emplace_back(c.template get<Word::Meaning>());
 
-                    // test
+                    // Test
                     // std::cout << c << '\n';
 
                 }
@@ -323,32 +380,46 @@ int main()
                 {
                     temp_word.name = c.template get<std::string>();
 
-                    //test
+                    // Test
                     // std:: cout << c << '\n';
                 }
 
             }
+            // Test
             // std::cout << b << "\n\n"; 
         }
 
         dictionary.add_word(temp_word);
     }
 
-
-    // test to see if dictionary has individual word
     // std::cout << dictionary.get_word("crimson clover").name << '\n';
-    
+
+    return true;
+
+}
+
+int create_tables(sqlite3* db);
 
 
-    int number_of_random_words{10};
-    for (int i = 0; i < number_of_random_words; i++)
-    {
-        std::cout << dictionary.get_random_word().name << '\n';
-    }
+int main()
+{
 
-    std::cout << "Dictionary size: " << dictionary.get_dict_size() << '\n';
+    // Declare Dictionary class object
+    Dictionary dictionary {};
 
+    // Open a dictionary, "../data/small_test_dict.json" for tests, "../data/wordset_merged_dict.json"
+    std::ifstream file("../data/small_test_dict.json");
 
-        // Check Feature Flags and adjust dict_map
+    json_to_class(file, dictionary);
+
+    test_random_words(dictionary, 10);
+
+    sqlite3 *db; // pointer to database connection
+
+    create_tables(db);
+
+    dictionary.save_to_database(db);
+
+    return 0;
 
 }
