@@ -2,10 +2,13 @@
 #include <fstream>
 #include <list>
 #include <cstring>
-#include <regex>
-#include "nlohmann/json.hpp"
-#include "external/sqlite/sqlite3.h"
-#include "Random.h"
+#include "../external/nlohmann/json.hpp"
+#include "../external/Random.h"
+#include "create_tables.h"
+
+extern "C" {
+    #include "../external/sqlite/sqlite3.h"
+}
 
 
 using json = nlohmann::json;
@@ -85,7 +88,7 @@ void Dictionary::save_to_database(sqlite3* db)
 
     int rc{};
 
-    const int batch_size = 1000;
+    const int batch_size = 700;
     int count = 0;
 
 
@@ -117,7 +120,6 @@ void Dictionary::save_to_database(sqlite3* db)
 
 
     // Begin Transaction
-    // Am I loading too much into this transaction?
 
     rc = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) {
@@ -248,21 +250,10 @@ void Dictionary::save_to_database(sqlite3* db)
 }
 
 
-
-int main()
+bool wordset_callback(int depth, Json::parse_event_t event, json & parsed)
 {
+     // skip object elements with incorrect keys
 
-
-    // declare Dictionary class object
-    Dictionary dictionary {};
-
-    // open JSON dict
-
-    std::ifstream file("test_dict.json");
-    
-    json::parser_callback_t cb = [](int depth, json::parse_event_t event, json & parsed)
-    {
-        // skip object elements with incorrect keys
         if (event == json::parse_event_t::key and parsed == json("contributors"))
         {
             return false;
@@ -279,6 +270,7 @@ int main()
         {
             return false;
         }
+        // It is possible that "labels" could be useful... but... not now
         else if (event == json::parse_event_t::key and parsed == json("labels"))
         {
             return false;
@@ -287,7 +279,21 @@ int main()
         {
             return true;
         }
-    };
+}
+
+
+int main()
+{
+
+
+    // Declare Dictionary class object
+    Dictionary dictionary {};
+
+    // Open a dictionary, "../data/small_test_dict.json" for tests, "../data/wordset_merged_dict.json"
+    std::ifstream file("../data/small_test_dict.json");
+
+    // Callback ignores 
+    json::parser_callback_t cb = wordset_callback;
 
     json j = json::parse(file, cb);
 
