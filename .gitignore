@@ -3,6 +3,7 @@ data/
 main
 test*
 private/
+build/
 
 # Compiled source #
 ###################
