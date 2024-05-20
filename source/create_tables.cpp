@@ -38,64 +38,44 @@ int execute_sql(sqlite3 *db, const std::string &sql)
 // has to be passed an open db connection
 int create_tables(sqlite3* db)
 {
-    int rc = sqlite3_open("../data/dictionary.sqlite", &db);
+    std::string sql = R"(
+        CREATE TABLE IF NOT EXISTS word (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS meaning (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            definition TEXT NOT NULL,
+            example TEXT,
+            speech_part TEXT,
+            word_id INTEGER NOT NULL,
+            FOREIGN KEY (word_id) REFERENCES word(id)
+        );
+        CREATE TABLE IF NOT EXISTS pronunciation (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ARPAbet TEXT NOT NULL,
+            word_id INTEGER NOT NULL,
+            FOREIGN KEY (word_id) REFERENCES word(id)
+        );
+        CREATE TABLE IF NOT EXISTS synonym (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            synonym TEXT NOT NULL,
+            meaning_id INTEGER NOT NULL,
+            FOREIGN KEY (meaning_id) REFERENCES meaning(id)
+        );
+    )";
 
-    if (rc == SQLITE_OK)
+    int rc = execute_sql(db, sql);
+
+    if (rc != SQLITE_OK)
     {
-        std::cout << "Successfully opened the database" << std::endl;
-
-        std::string sql = R"(
-            CREATE TABLE IF NOT EXISTS word (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                word TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS meaning (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                definition TEXT NOT NULL,
-                example TEXT,
-                speech_part TEXT,
-                word_id INTEGER NOT NULL,
-                FOREIGN KEY (word_id) REFERENCES word(id)
-            );
-            CREATE TABLE IF NOT EXISTS pronunciation (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ARPAbet TEXT NOT NULL,
-                word_id INTEGER NOT NULL,
-                FOREIGN KEY (word_id) REFERENCES word(id)
-            );
-            CREATE TABLE IF NOT EXISTS synonym (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                synonym TEXT NOT NULL,
-                meaning_id INTEGER NOT NULL,
-                FOREIGN KEY (meaning_id) REFERENCES meaning(id)
-            );
-        )";
-
-        rc = execute_sql(db, sql);
-
-        if (rc != SQLITE_OK)
-        {
-            std::cerr << "SQL error: " << sqlite3_errmsg(db) << std::endl;
-        }
-        else
-        {
-            std::cout << "Tables created successfully" << std::endl;
-        }
-        
-        
+        std::cerr << "SQL error: " << sqlite3_errmsg(db) << std::endl;
+        return rc;
     }
     else
     {
-        std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
+        std::cout << "Tables created successfully" << std::endl;
         return rc;
-    }
+    }    
     
-
-    // Set-up loop to insert each word into database
-
-    sqlite3_close(db);
-
-
-
-    return 0;
 }

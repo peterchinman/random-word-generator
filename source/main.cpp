@@ -12,6 +12,12 @@ extern "C" {
 
 using json = nlohmann::json;
 
+bool is_only_whitespace(const std::string& str) {
+    return std::all_of(str.begin(), str.end(), [](char c) {
+        return std::isspace(static_cast<unsigned char>(c));
+    });
+}
+
 namespace Word {
     struct Meaning
     {
@@ -32,54 +38,43 @@ namespace Word {
         void print_word()
         {
             std::cout << name << std::endl;
-
-            if (meanings.size() == 1)
-            {
-                std::cout << meanings[0].speech_part << std::endl;
-                std::cout << meanings[0].def << std::endl;
-                std::cout << "Example: "<< meanings[0].example << std::endl;
-                
-                if (meanings[0].synonyms.size() == 0)
-                {
-                    return;
-                }
-                else 
-                {
-                    std::cout << "Synoynms: ";
-                    for (const auto& synonym : meanings[0].synonyms)
-                    {
-                        std::cout << synonym << ", ";
-                    }
-                    std::cout << std::endl;
-                }
-            }
-
-            else
-            {  
+            
             int count{1};
             for (auto& meaning : meanings)
             {
-                std::cout << count++ << std::endl; 
-                std::cout << meanings[0].speech_part << std::endl;
-                std::cout << meanings[0].def << std::endl;
-                std::cout << "Example: "<< meanings[0].example << std::endl;
-                
-                if (meanings[0].synonyms.size() == 0)
+                if (meanings.size() > 1)
                 {
-                    continue;
+                    std::cout << count++ << std::endl; 
                 }
-                else 
+                std::cout << meaning.speech_part << std::endl;
+                std::cout << meaning.def << std::endl;
+                if (!meaning.example.empty())
+                {
+                    std::cout << "Example: "<< meaning.example << std::endl;
+                }
+                
+                if (meaning.synonyms.size() > 0)
                 {
                     std::cout << "Synoynms: ";
-                    for (const auto& synonym : meanings[0].synonyms)
+                    int synonym_count{1};
+                    for (const auto& synonym : meaning.synonyms)
                     {
-                        std::cout << synonym << ", ";
+                        if (synonym_count == 1)
+                        {
+                            std::cout << synonym;
+                        }
+                        else
+                        {
+                            std::cout << ", " << synonym ;
+                        }
+
+                        synonym_count++;
+                        
                     }
                     std::cout << std::endl;
                 }
             }
-            }
-
+            std::cout << std::endl;
             return;
 
             
@@ -138,6 +133,10 @@ class Dictionary
 
 void Dictionary::save_to_database(sqlite3* db)
 {
+
+    // Current problems: everything is getting added twice
+
+
     sqlite3_stmt* stmt_word;
     sqlite3_stmt* stmt_meaning;
     sqlite3_stmt* stmt_synonym;
@@ -151,7 +150,7 @@ void Dictionary::save_to_database(sqlite3* db)
     // Prepare the SQL statements
     const char* sql_insert_word = "INSERT INTO word (word) VALUES (?);";
     const char* sql_insert_meaning = "INSERT INTO meaning (definition, example, speech_part, word_id) VALUES (?, ?, ?, (SELECT id FROM word WHERE word = ?));";
-    const char* sql_insert_synonym = "INSERT INTO synonym (synonym, meaning_id) VALUES (?, (SELECT id FROM meaning WHERE word_id = (SELECT id FROM word WHERE word = ?)));";
+    const char* sql_insert_synonym = "INSERT INTO synonym (synonym, meaning_id) VALUES (?, (SELECT seq from sqlite_sequence where name = 'meaning'));";
 
     rc = sqlite3_prepare_v2(db, sql_insert_word, -1, &stmt_word, nullptr);
     if (rc != SQLITE_OK) {
@@ -187,9 +186,6 @@ void Dictionary::save_to_database(sqlite3* db)
 
     for (const auto& word : m_words)
     {
-        // Chat told me to define these, but I don't think I need to?
-        // const std::string& word_name = word.first;
-        // const Word::Word& word_word = word.second;
 
         // Insert word into word table
         // Note: the second argument indicates which ? you are binding to
@@ -223,8 +219,8 @@ void Dictionary::save_to_database(sqlite3* db)
 
             sqlite3_bind_text(stmt_meaning, 1, meaning.def.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt_meaning, 2, meaning.example.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_text(stmt_meaning, 2, meaning.speech_part.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_text(stmt_meaning, 2, word.first.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt_meaning, 3, meaning.speech_part.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt_meaning, 4, word.first.c_str(), -1, SQLITE_STATIC);
 
             // step
 
@@ -243,7 +239,7 @@ void Dictionary::save_to_database(sqlite3* db)
 
             sqlite3_reset(stmt_meaning);
 
-            
+            // Insert synonyms into synonym table
 
             for (const auto& synonym : meaning.synonyms)
             {
@@ -251,7 +247,6 @@ void Dictionary::save_to_database(sqlite3* db)
 
                 // bind
                 sqlite3_bind_text(stmt_synonym, 1, synonym.c_str(), -1, SQLITE_STATIC);
-                sqlite3_bind_text(stmt_synonym, 2, word.first.c_str(), -1, SQLITE_STATIC);
 
                 // step
                 rc = sqlite3_step(stmt_synonym);
@@ -267,8 +262,8 @@ void Dictionary::save_to_database(sqlite3* db)
                     return;
                 }
 
-                sqlite3_reset(stmt_meaning);
-                }
+                sqlite3_reset(stmt_synonym);
+            }
         }
         
         std::cout << "added: " << word.first << std::endl; 
@@ -280,6 +275,9 @@ void Dictionary::save_to_database(sqlite3* db)
             if (rc != SQLITE_OK) {
                 std::cerr << "Failed to commit transaction: " << sqlite3_errmsg(db) << std::endl;
                 break;
+            }
+            else  {
+                std::cout << "Commit " << count - 1 << " successful." << std::endl;
             }
             rc = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
             if (rc != SQLITE_OK) {
@@ -296,12 +294,18 @@ void Dictionary::save_to_database(sqlite3* db)
     sqlite3_finalize(stmt_meaning);
     sqlite3_finalize(stmt_synonym);
 
-     // Commit transaction
+    // Commit transaction of any remaining statements
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK)
     {
         std::cerr << "Failed to commit final transaction: " << sqlite3_errmsg(db) << std::endl;
     }
+    else
+    {
+        std::cout << "Final commit successful." << std::endl;
+    }
+
+    return;
 
 }
 
@@ -340,11 +344,13 @@ bool wordset_callback(int depth, json::parse_event_t event, json & parsed)
 void test_random_words(Dictionary& dictionary, int number_of_random_words)
 {
     std::cout << number_of_random_words << " Random Words: " << std::endl;
+    std::cout << std::endl;
     for (int i = 0; i < number_of_random_words; i++)
     {
         dictionary.get_random_word().print_word();
     }
-    std::cout << "Dictionary size: " << dictionary.get_dict_size() << '\n';
+    std::cout << "Dictionary size: " << dictionary.get_dict_size() << std::endl;
+    std::cout << std::endl;
 }
 
 bool json_to_class(std::ifstream& file, Dictionary& dictionary)
@@ -416,9 +422,23 @@ int main()
 
     sqlite3 *db; // pointer to database connection
 
+    // Open database connection
+    int rc = sqlite3_open("../data/dictionary.sqlite", &db);
+    if (rc != SQLITE_OK)
+    {
+        std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
+        return rc;
+    }
+    else
+    {
+        std::cout << "Successfully opened the database" << std::endl;
+    }
+
     create_tables(db);
 
     dictionary.save_to_database(db);
+
+    sqlite3_close(db);
 
     return 0;
 
