@@ -134,8 +134,6 @@ class Dictionary
 void Dictionary::save_to_database(sqlite3* db)
 {
 
-    // Current problems: everything is getting added twice
-
 
     sqlite3_stmt* stmt_word;
     sqlite3_stmt* stmt_meaning;
@@ -414,7 +412,7 @@ int main()
     Dictionary dictionary {};
 
     // Open a dictionary, "../data/small_test_dict.json" for tests, "../data/wordset_merged_dict.json"
-    std::ifstream file("../data/small_test_dict.json");
+    std::ifstream file("../data/wordset_merged_dict.json");
 
     json_to_class(file, dictionary);
 
