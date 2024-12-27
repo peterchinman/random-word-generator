@@ -1,6 +1,8 @@
 # random-word-generator
 A Random Word Generator
 
+
+
 Database Structure
 ```mermaid
 ---

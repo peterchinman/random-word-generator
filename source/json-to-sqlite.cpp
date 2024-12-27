@@ -1,3 +1,5 @@
+// Reads Wordset JSON into a Dictionary class, and then outputs Dictionary into a SQLite database
+
 #include <iostream>
 #include <fstream>
 #include <list>
